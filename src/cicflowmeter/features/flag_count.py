@@ -24,15 +24,11 @@ class FlagCount:
         """
         count = 0
         if packet_direction is not None:
-            packets = (
-                packet
-                for packet, direction in self.flow.packets
-                if direction == packet_direction
-            )
+            packets = (packet for packet, direction in self.flow.packets if direction == packet_direction)
         else:
             packets = (packet for packet, _ in self.flow.packets)
 
         for packet in packets:
-            if flag[0] in packet.sprintf("%TCP.flags%"):
+            if flag[0] in packet.sprintf('%TCP.flags%'):
                 count += 1
         return count

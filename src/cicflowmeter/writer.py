@@ -1,4 +1,5 @@
 import csv
+
 from typing import Protocol
 
 import requests
@@ -11,7 +12,7 @@ class OutputWriter(Protocol):
 
 class CSVWriter(OutputWriter):
     def __init__(self, output_file) -> None:
-        self.file = open(output_file, "w")
+        self.file = open(output_file, 'w')
         self.line = 0
         self.writer = csv.writer(self.file)
 
@@ -37,7 +38,7 @@ class HttpWriter(OutputWriter):
             resp = self.session.post(self.url, json=data, timeout=5)
             resp.raise_for_status()  # raise if not 2xx
         except Exception:
-            self.logger.exception("HTTPWriter failed posting flow")
+            self.logger.exception('HTTPWriter failed posting flow')
 
     def __del__(self):
         self.session.close()
@@ -45,9 +46,9 @@ class HttpWriter(OutputWriter):
 
 def output_writer_factory(output_mode, output) -> OutputWriter:
     match output_mode:
-        case "url":
+        case 'url':
             return HttpWriter(output)
-        case "csv":
+        case 'csv':
             return CSVWriter(output)
         case _:
-            raise RuntimeError("no output_mode provided")
+            raise RuntimeError('no output_mode provided')

@@ -1,4 +1,5 @@
 import numpy
+
 from scipy import stats as stat
 
 
@@ -25,11 +26,7 @@ class PacketLength:
 
         """
         if packet_direction is not None:
-            return [
-                len(packet)
-                for packet, direction in self.flow.packets
-                if direction == packet_direction
-            ]
+            return [len(packet) for packet, direction in self.flow.packets if direction == packet_direction]
         return [len(packet) for packet, _ in self.flow.packets]
 
     def get_header_length(self, packet_direction=None) -> list:
@@ -40,12 +37,8 @@ class PacketLength:
 
         """
         if packet_direction is not None:
-            return (
-                packet["IP"].ihl * 4
-                for packet, direction in self.flow.packets
-                if direction == packet_direction
-            )
-        return (packet["IP"].ihl * 4 for packet, _ in self.flow.packets)
+            return (packet['IP'].ihl * 4 for packet, direction in self.flow.packets if direction == packet_direction)
+        return (packet['IP'].ihl * 4 for packet, _ in self.flow.packets)
 
     def get_total_header(self, packet_direction=None) -> int:
         """Calculates the summary header lengths.

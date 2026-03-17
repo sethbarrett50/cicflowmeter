@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import numpy
+
 from scipy import stats as stat
 
 
@@ -24,24 +25,16 @@ class PacketTime:
         if self.packet_times is not None:
             return self.packet_times
         first_packet_time = self.flow.packets[0][0].time
-        packet_times = [
-            float(packet.time - first_packet_time) for packet, _ in self.flow.packets
-        ]
+        packet_times = [float(packet.time - first_packet_time) for packet, _ in self.flow.packets]
         return packet_times
 
     def get_packet_iat(self, packet_direction=None):
         if packet_direction is not None:
-            packets = [
-                packet
-                for packet, direction in self.flow.packets
-                if direction == packet_direction
-            ]
+            packets = [packet for packet, direction in self.flow.packets if direction == packet_direction]
         else:
             packets = [packet for packet, _ in self.flow.packets]
 
-        return [
-            float(packets[i].time - packets[i - 1].time) for i in range(1, len(packets))
-        ]
+        return [float(packets[i].time - packets[i - 1].time) for i in range(1, len(packets))]
 
     def relative_time_list(self):
         relative_time_list = []
@@ -66,7 +59,7 @@ class PacketTime:
 
         """
         time = float(self.flow.packets[0][0].time)
-        return datetime.fromtimestamp(time).strftime("%Y-%m-%d %H:%M:%S")
+        return datetime.fromtimestamp(time).strftime('%Y-%m-%d %H:%M:%S')
 
     def get_duration(self):
         """Calculates the duration of a network flow.
