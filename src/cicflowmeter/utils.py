@@ -1,12 +1,13 @@
 import logging
 import uuid
+
 from itertools import islice, zip_longest
 
 import numpy
 
 
 def get_logger(debug=False):
-    logger = logging.getLogger("cicflowmeter")
+    logger = logging.getLogger('cicflowmeter')
     if not logger.hasHandlers():
         logging.basicConfig()
     logger.setLevel(logging.DEBUG if debug else logging.WARNING)
@@ -24,7 +25,7 @@ def grouper(iterable, n, max_groups=0, fillvalue=None):
 
 
 def random_string():
-    return uuid.uuid4().hex[:6].upper().replace("0", "X").replace("O", "Y")
+    return uuid.uuid4().hex[:6].upper().replace('0', 'X').replace('O', 'Y')
 
 
 def get_statistics(alist: list):
@@ -33,16 +34,16 @@ def get_statistics(alist: list):
     alist = [float(x) for x in alist]
 
     if len(alist) > 1:
-        iat["total"] = sum(alist)
-        iat["max"] = max(alist)
-        iat["min"] = min(alist)
-        iat["mean"] = numpy.mean(alist)
-        iat["std"] = numpy.sqrt(numpy.var(alist))
+        iat['total'] = sum(alist)
+        iat['max'] = max(alist)
+        iat['min'] = min(alist)
+        iat['mean'] = numpy.mean(alist)
+        iat['std'] = numpy.sqrt(numpy.var(alist))
     else:
-        iat["total"] = 0
-        iat["max"] = 0
-        iat["min"] = 0
-        iat["mean"] = 0
-        iat["std"] = 0
+        iat['total'] = 0
+        iat['max'] = 0
+        iat['min'] = 0
+        iat['mean'] = 0
+        iat['std'] = 0
 
     return iat

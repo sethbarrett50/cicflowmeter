@@ -1,4 +1,5 @@
 import numpy
+
 from scipy import stats as stat
 
 from .context import PacketDirection
@@ -24,10 +25,7 @@ class ResponseTime:
         temp_packet = None
         temp_direction = None
         for packet, direction in self.flow.packets:
-            if (
-                temp_direction == PacketDirection.FORWARD
-                and direction == PacketDirection.REVERSE
-            ):
+            if temp_direction == PacketDirection.FORWARD and direction == PacketDirection.REVERSE:
                 diff = packet.time - temp_packet.time
                 time_diff.append(float(diff))
             temp_packet = packet

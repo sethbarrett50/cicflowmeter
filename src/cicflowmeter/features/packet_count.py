@@ -16,13 +16,7 @@ class PacketCount:
 
         """
         if packet_direction is not None:
-            return len(
-                [
-                    packet
-                    for packet, direction in self.flow.packets
-                    if direction == packet_direction
-                ]
-            )
+            return len([packet for packet, direction in self.flow.packets if direction == packet_direction])
         return len(self.flow.packets)
 
     def get_rate(self, packet_direction=None) -> float:
@@ -56,10 +50,10 @@ class PacketCount:
 
     @staticmethod
     def get_payload(packet):
-        if "TCP" in packet:
-            return packet["TCP"].payload
-        elif "UDP" in packet:
-            return packet["UDP"].payload
+        if 'TCP' in packet:
+            return packet['TCP'].payload
+        elif 'UDP' in packet:
+            return packet['UDP'].payload
         return 0
 
     def has_payload(self, packet_direction=None) -> int:
@@ -70,18 +64,9 @@ class PacketCount:
         """
 
         if packet_direction is not None:
-            return len(
-                [
-                    packet
-                    for packet, direction in self.flow.packets
-                    if direction == packet_direction
-                    and len(self.get_payload(packet)) > 0
-                ]
-            )
-        return len(
-            [
+            return len([
                 packet
-                for packet, _ in self.flow.packets
-                if len(self.get_payload(packet)) > 0
-            ]
-        )
+                for packet, direction in self.flow.packets
+                if direction == packet_direction and len(self.get_payload(packet)) > 0
+            ])
+        return len([packet for packet, _ in self.flow.packets if len(self.get_payload(packet)) > 0])

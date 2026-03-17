@@ -1,4 +1,5 @@
 import threading
+
 from scapy.packet import Packet
 from scapy.sessions import DefaultSession
 
@@ -13,9 +14,7 @@ from .utils import get_logger
 class FlowSession(DefaultSession):
     """Creates a list of network flows."""
 
-    def __init__(
-        self, output_mode=None, output=None, fields=None, verbose=False, *args, **kwargs
-    ):
+    def __init__(self, output_mode=None, output=None, fields=None, verbose=False, *args, **kwargs):
         self.flows: dict[tuple, Flow] = {}
         self.verbose = verbose
         self.fields = fields
@@ -48,11 +47,11 @@ class FlowSession(DefaultSession):
         Needed for use in scapy versions above 2.5 because of a breaking change in scapy.
         Functionality is same as on_packet_received, but returnvalues are added.
         """
-        self.logger.debug(f"Packet {self.packets_count}: {pkt}")
+        self.logger.debug(f'Packet {self.packets_count}: {pkt}')
         count = 0
         direction = PacketDirection.FORWARD
 
-        if "TCP" not in pkt and "UDP" not in pkt:
+        if 'TCP' not in pkt and 'UDP' not in pkt:
             return None  # Do not return the packet, prevents Scapy from printing
 
         try:
@@ -93,7 +92,7 @@ class FlowSession(DefaultSession):
                     with self._lock:
                         self.flows[(packet_flow_key, count)] = flow
                     break
-        elif "F" in pkt.flags:
+        elif 'F' in pkt.flags:
             # FIN: add packet and early collect
             flow.add_packet(pkt, direction)
             # call garbage_collect with current time; protect with lock inside GC
@@ -121,9 +120,7 @@ class FlowSession(DefaultSession):
             with self._lock:
                 flow = self.flows.get(k)
             if not flow or (
-                latest_time is not None
-                and latest_time - flow.latest_timestamp < EXPIRED_UPDATE
-                and flow.duration < 90
+                latest_time is not None and latest_time - flow.latest_timestamp < EXPIRED_UPDATE and flow.duration < 90
             ):
                 continue
 
@@ -138,7 +135,7 @@ class FlowSession(DefaultSession):
 
             # Finally write to output (IO outside the lock)
             self.output_writer.write(data)
-            self.logger.debug(f"Flow Collected! Remain Flows = {len(self.flows)}")
+            self.logger.debug(f'Flow Collected! Remain Flows = {len(self.flows)}')
 
     def flush_flows(self):
         # Write all remaining flows to output (for end of sniffing)
