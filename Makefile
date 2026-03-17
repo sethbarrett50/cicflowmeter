@@ -1,17 +1,44 @@
-install:
-	@uv sync
+SHELL := /usr/bin/env bash
+.DEFAULT_GOAL := help
 
-clean:
-	rm -rf *.egg-info build dist report.xml *.csv
+UV    ?= uv
+RUFF  ?= ruff
+PY    ?= python
 
-release-minor:
-	@uv version --bump minor
-	@git tag -a v$(shell uv version --short)
 
-release-patch:
-	@uv version --bump patch
-	@git tag -a v$(shell uv version --short)
+.PHONY: help sync lint format check test run sample build clean
 
-publish: clean
-	@uv build
-	@uv publish
+help: ## Show targets
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+sync: ## Install/sync deps (including dev group)
+	$(UV) sync --dev
+
+format: ## Format code
+	$(UV) run $(RUFF) format .
+
+check: ## Lint (no fixes)
+	$(UV) run $(RUFF) check .
+
+lint: ## Format + lint with fixes
+	$(UV) run $(RUFF) format .
+	$(UV) run $(RUFF) check . --fix
+
+run: ## Run word count on current_doc.tex
+	$(UV) run cicflowmeter 
+
+sample: ## Run word count on sample.tex
+	$(UV) run latex-wc --document-path ./sample.tex --min-len $(MIN_LEN)
+
+test: ## Run tests
+	$(UV) run pytest -q
+
+build: ## Build sdist/wheel
+	$(UV) build
+
+clean: ## Remove build artifacts
+	rm -rf dist build *.egg-info
+	
+preflight: ## Build + run twine metadata checks
+	$(UV) build
+	uvx twine check dist/*
