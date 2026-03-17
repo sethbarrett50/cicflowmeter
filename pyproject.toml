@@ -13,6 +13,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=2.4.3",
+    "pydantic>=2.12.5",
     "requests>=2.32.5",
     "scapy>=2.7.0",
     "scipy>=1.17.1",
@@ -22,7 +23,7 @@ homepage = "https://github.com/hieulw/cicflowmeter"
 repository = "https://github.com/hieulw/cicflowmeter"
 
 [project.scripts]
-cicflowmeter = "cicflowmeter.sniffer:main"
+cicflowmeter = "cicflowmeter.cli:main"
 
 [dependency-groups]
 dev = [

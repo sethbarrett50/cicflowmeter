@@ -1,42 +1,77 @@
-import argparse
+from __future__ import annotations
+
 import threading
 import time
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scapy.sendrecv import AsyncSniffer
 
 from cicflowmeter.flow_session import FlowSession
 
-GC_INTERVAL = 1.0  # seconds (tune as needed)
+if TYPE_CHECKING:
+    from cli import CliConfig
 
 
-def _start_periodic_gc(session, interval=GC_INTERVAL):
+GC_INTERVAL = 1.0  # seconds
+
+
+def _start_periodic_gc(session: FlowSession, interval: float = GC_INTERVAL) -> None:
+    """Start a background thread that periodically garbage-collects flows."""
     stop_event = threading.Event()
 
-    def _gc_loop():
+    def _gc_loop() -> None:
         while not stop_event.wait(interval):
             try:
                 session.garbage_collect(time.time())
             except Exception:
-                # Don't let GC threading failures kill the process
+                # Do not let GC thread failures kill the process.
                 session.logger.exception('Periodic GC error')
 
-    t = threading.Thread(target=_gc_loop, name='flow-gc', daemon=True)
-    t.start()
-    # attach to session so we can stop it later
-    session._gc_thread = t
-    session._gc_stop = stop_event
-
-
-def create_sniffer(input_file, input_interface, output_mode, output, input_directory=None, fields=None, verbose=False):
-    assert sum([input_file is None, input_interface is None, input_directory is None]) == 2, (
-        'Provide exactly one: interface, file, or directory input'
+    gc_thread = threading.Thread(
+        target=_gc_loop,
+        name='flow-gc',
+        daemon=True,
     )
-    if fields is not None:
-        fields = fields.split(',')
+    gc_thread.start()
 
-    # Pass config to FlowSession constructor
+    # Attach to the session so we can stop the thread later.
+    setattr(session, '_gc_thread', gc_thread)
+    setattr(session, '_gc_stop', stop_event)
+
+
+def _stop_periodic_gc(session: FlowSession) -> None:
+    """Stop the background GC thread if it exists."""
+    stop_event = getattr(session, '_gc_stop', None)
+    gc_thread = getattr(session, '_gc_thread', None)
+
+    if stop_event is not None:
+        stop_event.set()
+
+    if gc_thread is not None:
+        gc_thread.join(timeout=2.0)
+
+
+def create_sniffer(
+    input_file: str | None,
+    input_interface: str | None,
+    output_mode: str,
+    output: str,
+    input_directory: str | None = None,
+    fields: list[str] | None = None,
+    verbose: bool = False,
+) -> tuple[AsyncSniffer, FlowSession]:
+    """Create and configure a sniffer and flow session."""
+    assert (
+        sum([
+            input_file is None,
+            input_interface is None,
+            input_directory is None,
+        ])
+        == 2
+    ), 'Provide exactly one: interface, file, or directory input'
+
     session = FlowSession(
         output_mode=output_mode,
         output=output,
@@ -60,14 +95,20 @@ def create_sniffer(input_file, input_interface, output_mode, output, input_direc
             prn=session.process,
             store=False,
         )
+
     return sniffer, session
 
 
-def process_directory_merged(input_dir, output_dir, fields=None, verbose=False):
+def process_directory_merged(
+    input_dir: str | Path,
+    output_dir: str | Path,
+    fields: list[str] | None = None,
+    verbose: bool = False,
+) -> None:
+    """Process all pcap files in a directory and merge output into one CSV."""
     input_path = Path(input_dir)
     output_path = Path(output_dir)
 
-    # Validate input and output directory
     if not input_path.exists():
         print(f"Error: Input directory '{input_dir}' does not exist")
         return
@@ -83,11 +124,10 @@ def process_directory_merged(input_dir, output_dir, fields=None, verbose=False):
 
     try:
         output_path.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        print(f"Error: Could not create output directory '{output_dir}': {e}")
+    except Exception as exc:
+        print(f"Error: Could not create output directory '{output_dir}': {exc}")
         return
 
-    # Find all pcap files
     pcap_files = list(input_path.glob('*.pcap')) + list(input_path.glob('*.pcapng'))
 
     if not pcap_files:
@@ -98,7 +138,6 @@ def process_directory_merged(input_dir, output_dir, fields=None, verbose=False):
     print(f'Found {len(pcap_files)} pcap file(s) to process')
     print(f'Merging all flows into: {output_file.name}')
 
-    # Create a single sniffer session for all files
     session = FlowSession(
         output_mode='csv',
         output=str(output_file),
@@ -108,7 +147,7 @@ def process_directory_merged(input_dir, output_dir, fields=None, verbose=False):
 
     _start_periodic_gc(session, interval=GC_INTERVAL)
 
-    for idx, pcap_file in enumerate(pcap_files, 1):
+    for idx, pcap_file in enumerate(pcap_files, start=1):
         print(f'[{idx}/{len(pcap_files)}] Processing {pcap_file.name}...')
 
         try:
@@ -123,26 +162,25 @@ def process_directory_merged(input_dir, output_dir, fields=None, verbose=False):
             sniffer.join()
 
             print(f'[{idx}/{len(pcap_files)}] Completed {pcap_file.name}')
-        except Exception as e:
-            print(f'Error processing {pcap_file.name}: {e}')
+        except Exception as exc:
+            print(f'Error processing {pcap_file.name}: {exc}')
             continue
 
-    # Stop periodic GC
-    if hasattr(session, '_gc_stop'):
-        session._gc_stop.set()
-        session._gc_thread.join(timeout=2.0)
-
-    # Flush all remaining flows
+    _stop_periodic_gc(session)
     session.flush_flows()
 
     print(f'\nAll done! Merged output saved to: {output_file}')
 
 
-def process_directory(input_dir, output_dir, fields=None, verbose=False):
+def process_directory(
+    input_dir: str | Path,
+    output_dir: str | Path,
+    fields: list[str] | None = None,
+    verbose: bool = False,
+) -> None:
+    """Process all pcap files in a directory into per-file CSV outputs."""
     input_path = Path(input_dir)
     output_path = Path(output_dir)
-
-    # Validate input and output directory
 
     if not input_path.exists():
         print(f"Error: Input directory '{input_dir}' does not exist")
@@ -158,14 +196,12 @@ def process_directory(input_dir, output_dir, fields=None, verbose=False):
         print('Example: cicflowmeter -d ./pcaps/ -c ./output_directory/')
         return
 
-    # Create output directory if it doesn't exist
     try:
         output_path.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        print(f"Error: Could not create output directory '{output_dir}': {e}")
+    except Exception as exc:
+        print(f"Error: Could not create output directory '{output_dir}': {exc}")
         return
 
-    # Find all pcap files
     pcap_files = list(input_path.glob('*.pcap')) + list(input_path.glob('*.pcapng'))
 
     if not pcap_files:
@@ -192,115 +228,46 @@ def process_directory(input_dir, output_dir, fields=None, verbose=False):
             sniffer.start()
             sniffer.join()
 
-            # Stop periodic GC
-            if hasattr(session, '_gc_stop'):
-                session._gc_stop.set()
-                session._gc_thread.join(timeout=2.0)
-
-            # Flush all flows
+            _stop_periodic_gc(session)
             session.flush_flows()
 
             print(f'Completed {pcap_file.name}')
-        except Exception as e:
-            print(f'Error processing {pcap_file.name}: {e}')
+        except Exception as exc:
+            print(f'Error processing {pcap_file.name}: {exc}')
             continue
 
     print(f'\nAll done! Output files saved to: {output_dir}')
 
 
-def main():
-    parser = argparse.ArgumentParser()
-
-    input_group = parser.add_mutually_exclusive_group(required=True)
-    input_group.add_argument(
-        '-i',
-        '--interface',
-        action='store',
-        dest='input_interface',
-        help='capture online data from INPUT_INTERFACE',
-    )
-    input_group.add_argument(
-        '-f',
-        '--file',
-        action='store',
-        dest='input_file',
-        help='capture offline data from INPUT_FILE',
-    )
-    input_group.add_argument(
-        '-d',
-        '--directory',
-        action='store',
-        dest='input_directory',
-        help='process all pcap files from INPUT_DIRECTORY',
-    )
-
-    output_group = parser.add_mutually_exclusive_group(required=True)
-    output_group.add_argument(
-        '-c',
-        '--csv',
-        action='store_const',
-        const='csv',
-        dest='output_mode',
-        help='output flows as csv',
-    )
-    output_group.add_argument(
-        '-u',
-        '--url',
-        action='store_const',
-        const='url',
-        dest='output_mode',
-        help='output flows as request to url',
-    )
-
-    parser.add_argument(
-        'output',
-        help='output file name (in csv mode), url (in url mode), or output directory (in directory mode)',
-    )
-
-    parser.add_argument(
-        '--fields',
-        action='store',
-        dest='fields',
-        help='comma separated fields to include in output (default: all)',
-    )
-
-    parser.add_argument(
-        '--merge',
-        action='store_true',
-        help='merge all pcap files into a single CSV (only works with -d/--directory mode)',
-    )
-
-    parser.add_argument('-v', '--verbose', action='store_true', help='more verbose')
-
-    args = parser.parse_args()
-    if args.merge and not args.input_directory:
-        parser.error('--merge can only be used with -d/--directory mode')
-    if args.input_directory:
-        if args.merge:
+def run(config: CliConfig) -> None:
+    """Run the sniffer workflow from validated CLI configuration."""
+    if config.input_directory is not None:
+        if config.merge:
             process_directory_merged(
-                args.input_directory,
-                args.output,
-                args.fields,
-                args.verbose,
+                input_dir=config.input_directory,
+                output_dir=config.output,
+                fields=config.fields,
+                verbose=config.verbose,
             )
         else:
             process_directory(
-                args.input_directory,
-                args.output,
-                args.fields,
-                args.verbose,
+                input_dir=config.input_directory,
+                output_dir=config.output,
+                fields=config.fields,
+                verbose=config.verbose,
             )
         return
 
     sniffer, session = create_sniffer(
-        input_file=args.input_file,
-        input_interface=args.input_interface,
-        output_mode=args.output_mode,
-        output=args.output,
+        input_file=str(config.input_file) if config.input_file is not None else None,
+        input_interface=config.input_interface,
+        output_mode=config.output_mode,
+        output=config.output,
         input_directory=None,
-        fields=args.fields,
-        verbose=args.verbose,
+        fields=config.fields,
+        verbose=config.verbose,
     )
+
     sniffer.start()
 
     try:
@@ -308,14 +275,6 @@ def main():
     except KeyboardInterrupt:
         sniffer.stop()
     finally:
-        # Stop periodic GC if present
-        if hasattr(session, '_gc_stop'):
-            session._gc_stop.set()
-            session._gc_thread.join(timeout=2.0)
+        _stop_periodic_gc(session)
         sniffer.join()
-        # Flush all flows at the end
         session.flush_flows()
-
-
-if __name__ == '__main__':
-    main()
