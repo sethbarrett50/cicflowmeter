@@ -18,8 +18,11 @@
 
 ### Installation
 
-```sh
-git clone https://github.com/hieulw/cicflowmeter
+````
+uvx  "cicflowmeter @ git+ssh://git@github.com/sethbarrett50/cicflowmeter.git@master"
+
+
+git clone https://github.com/sethbarrett50/cicflowmeter
 cd cicflowmeter
 uv sync
 source .venv/bin/activate
@@ -76,3 +79,4 @@ cicflowmeter -i eth0 -u http://localhost:8080/predict
 
 1. https://www.unb.ca/cic/research/applications.html#CICFlowMeter
 2. https://github.com/ahlashkari/CICFlowMeter
+3. https://github.com/hieulw/cicflowmeter

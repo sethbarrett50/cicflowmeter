@@ -11,7 +11,7 @@ from scapy.sendrecv import AsyncSniffer
 from cicflowmeter.flow_session import FlowSession
 
 if TYPE_CHECKING:
-    from cli import CliConfig
+    from .cli import CliConfig
 
 
 GC_INTERVAL = 1.0  # seconds
